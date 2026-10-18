@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="stylesheet" href="style.css">
 
   <script type="importmap">
@@ -49,15 +50,7 @@
       <section class="intro" aria-labelledby="pageTitle">
         <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span> REACTION LAB <span class="eyebrow-slash">/</span> 001</p>
         <h1 id="pageTitle">Measure the<br><span class="title-accent">moment.</span></h1>
-        <p class="intro-copy">A small test of focus and instinct. Wait for the signal, then respond the instant green appears.</p>
-
-        <div class="how-it-works">
-          <span class="how-number" aria-hidden="true">01</span>
-          <div>
-            <h2>Trust the signal.</h2>
-            <p>Each round starts with a random delay. Jump the gun and the attempt resets. React only when the field turns green.</p>
-          </div>
-        </div>
+        <p class="intro-copy">A minimalist test of focus, timing, and instinct. One unpredictable signal puts your reflexes on the clock.</p>
 
         <div class="quick-facts" aria-label="Test details">
           <div class="quick-fact">
@@ -93,16 +86,46 @@
             <span>OPTICAL SIGNAL</span>
           </div>
 
-          <button id="reactionArea" class="reaction-area" type="button" aria-label="Reaction area. Start a round, then wait for green before reacting." aria-describedby="stageCopy">
-            <span class="stage-overline" id="stageOverline">READY WHEN YOU ARE</span>
-            <span class="stage-title" id="stageTitle">Find your focus.</span>
-            <span class="stage-copy" id="stageCopy">Press start, then click or tap here only when the signal turns green.</span>
-            <span class="stage-keys" aria-hidden="true">
-              <kbd>CLICK / TAP</kbd>
-              <span class="keys-divider">OR</span>
-              <kbd>SPACE</kbd>
+          <button id="reactionArea" class="reaction-area" type="button" aria-label="Game instructions. Click anywhere in this panel or press Space to start." aria-describedby="stageCopy">
+            <span class="stage-overline" id="stageOverline">FIRST, GET READY</span>
+            <span class="stage-title" id="stageTitle">Wait. Then react.</span>
+            <span class="score-rating" id="scoreRating" hidden></span>
+            <span class="stage-copy" id="stageCopy">Click anywhere in this game panel or press Space to start. Wait for green, then react. An early response cancels the round.</span>
+            <span class="stage-keys" id="stageKeys" aria-hidden="true">
+              <kbd id="keyHintPrimary">CLICK ANYWHERE</kbd>
+              <span class="keys-divider" id="keysDivider">OR</span>
+              <kbd id="keyHintSecondary">SPACE TO START</kbd>
             </span>
           </button>
+
+          <section id="ratingGuide" class="rating-guide" aria-labelledby="ratingGuideHeading" hidden>
+            <div class="rating-guide-header">
+              <h2 id="ratingGuideHeading">REACTION TIME GUIDE</h2>
+              <p>Informal reference for visual reaction tests.</p>
+            </div>
+            <div class="rating-grid">
+              <div class="rating-item" data-rating="amazing">
+                <div class="rating-item-top"><strong>Amazing</strong><span>&lt; 150 ms</span></div>
+                <p>Exceptional speed for a visual cue.</p>
+              </div>
+              <div class="rating-item" data-rating="veryGood">
+                <div class="rating-item-top"><strong>Very good</strong><span>150–199 ms</span></div>
+                <p>Faster than typical visual responses.</p>
+              </div>
+              <div class="rating-item" data-rating="good">
+                <div class="rating-item-top"><strong>Good</strong><span>200–249 ms</span></div>
+                <p>A quick, solid response.</p>
+              </div>
+              <div class="rating-item" data-rating="average">
+                <div class="rating-item-top"><strong>Average</strong><span>250–350 ms</span></div>
+                <p>Around the common range for visual tests.</p>
+              </div>
+              <div class="rating-item" data-rating="belowAverage">
+                <div class="rating-item-top"><strong>Below average</strong><span>&gt; 350 ms</span></div>
+                <p>Slower than typical; practice and focus can help.</p>
+              </div>
+            </div>
+          </section>
 
           <div class="panel-footer">
             <div class="best-stat">

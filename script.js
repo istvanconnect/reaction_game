@@ -1,12 +1,26 @@
+const INITIAL_READY_VIEW = Object.freeze({
+  badge: "HOW TO PLAY",
+  overline: "FIRST, GET READY",
+  title: "Wait. Then react.",
+  copy: "Click anywhere in this game panel or press Space to start. Wait for green, then react. An early response cancels the round.",
+  action: "Start round",
+  ariaLabel: "Game instructions. Click anywhere in this panel or press Space to start.",
+  announcement: "Instructions: click anywhere in the game panel or press Space to start. Wait for green before reacting.",
+  keyPrimary: "CLICK ANYWHERE",
+  keySecondary: "SPACE TO START"
+});
+
 const STATES = Object.freeze({
   ready: {
     badge: "STANDBY",
     overline: "READY WHEN YOU ARE",
-    title: "Find your focus.",
-    copy: "Press start, then click or tap here only when the signal turns green.",
+    title: "Ready for another round.",
+    copy: "Click anywhere in this panel or press Space to start again. Wait for green before reacting.",
     action: "Start round",
-    ariaLabel: "Reaction area. Start a round, then wait for green before reacting.",
-    announcement: "Ready. Press Start round, then wait for the green signal before reacting."
+    ariaLabel: "Ready. Click anywhere in this panel or press Space to start another round.",
+    announcement: "Ready for another round.",
+    keyPrimary: "CLICK PANEL",
+    keySecondary: "SPACE TO START"
   },
   waiting: {
     badge: "WAITING",
@@ -15,7 +29,9 @@ const STATES = Object.freeze({
     copy: "Stay still and stay ready. React only when the signal appears.",
     action: "Waiting for signal",
     ariaLabel: "Reaction area. Wait for green. Do not react yet.",
-    announcement: "Waiting for green. Do not react yet."
+    announcement: "Waiting for green. Do not react yet.",
+    keyPrimary: "CLICK / TAP",
+    keySecondary: "SPACE"
   },
   active: {
     badge: "SIGNAL LIVE",
@@ -24,7 +40,9 @@ const STATES = Object.freeze({
     copy: "Click, tap, or press Space now.",
     action: "Signal is live",
     ariaLabel: "Green signal active. Click, tap, or press Space now.",
-    announcement: "Green signal. React now."
+    announcement: "Green signal. React now.",
+    keyPrimary: "CLICK / TAP",
+    keySecondary: "SPACE"
   },
   falseStart: {
     badge: "FALSE START",
@@ -32,8 +50,10 @@ const STATES = Object.freeze({
     title: "Too soon! Try again.",
     copy: "That attempt doesn't count. Reset your focus and wait for green.",
     action: "Try again",
-    ariaLabel: "False start. That attempt was cancelled. Select Try again when ready.",
-    announcement: "Too soon. This attempt was cancelled. Select Try again when ready."
+    ariaLabel: "False start. That attempt was cancelled. Click the panel or press Space to try again.",
+    announcement: "Too soon. This attempt was cancelled. Click the panel or press Space to try again.",
+    keyPrimary: "CLICK PANEL",
+    keySecondary: "SPACE TO RETRY"
   },
   result: {
     badge: "RECORDED",
@@ -41,10 +61,20 @@ const STATES = Object.freeze({
     title: "Reaction captured.",
     copy: "A clean response. Play again to try for a new session best.",
     action: "Play again",
-    ariaLabel: "Last reaction result. Select Play again to start another round.",
-    announcement: "Reaction recorded."
+    ariaLabel: "Last reaction result. Click the panel or press Space to play again.",
+    announcement: "Reaction recorded.",
+    keyPrimary: "CLICK PANEL",
+    keySecondary: "SPACE TO REPLAY"
   }
 });
+
+const REACTION_RATINGS = Object.freeze([
+  { key: "amazing", label: "Amazing", range: "< 150 ms", max: 149, description: "Exceptional speed for a visual cue." },
+  { key: "veryGood", label: "Very good", range: "150–199 ms", max: 199, description: "Faster than typical visual responses." },
+  { key: "good", label: "Good", range: "200–249 ms", max: 249, description: "A quick, solid response." },
+  { key: "average", label: "Average", range: "250–350 ms", max: 350, description: "Around the common range for visual tests." },
+  { key: "belowAverage", label: "Below average", range: "> 350 ms", max: Infinity, description: "Slower than typical; practice and focus can help." }
+]);
 
 const STATE_COLORS = Object.freeze({
   ready: 0x60a5fa,
@@ -67,12 +97,19 @@ const stateBadgeText = document.querySelector("#stateBadgeText");
 const roundNumber = document.querySelector("#roundNumber");
 const stageOverline = document.querySelector("#stageOverline");
 const stageTitle = document.querySelector("#stageTitle");
+const scoreRating = document.querySelector("#scoreRating");
 const stageCopy = document.querySelector("#stageCopy");
+const stageKeys = document.querySelector("#stageKeys");
+const keyHintPrimary = document.querySelector("#keyHintPrimary");
+const keyHintSecondary = document.querySelector("#keyHintSecondary");
+const ratingGuide = document.querySelector("#ratingGuide");
+const ratingItems = [...document.querySelectorAll(".rating-item")];
 const sessionBestValue = document.querySelector("#sessionBestValue");
 const bestSubtitle = document.querySelector("#bestSubtitle");
 const liveStatus = document.querySelector("#liveStatus");
 
 let gameState = "ready";
+let hasStartedOnce = false;
 let roundTimeoutId = null;
 let roundToken = 0;
 let roundCount = 0;
@@ -87,31 +124,54 @@ renderBestScore();
 renderGameState("ready", { announce: false });
 initializeScene();
 
-primaryAction.addEventListener("click", () => {
+primaryAction.addEventListener("click", (event) => {
+  // Keep this separate from the panel-wide click handler so a button click starts only one round.
+  event.stopPropagation();
   if (!["ready", "falseStart", "result"].includes(gameState)) return;
   startRound();
-  // Move keyboard focus to the reaction control so Space/Enter can be used immediately.
   reactionArea.focus({ preventScroll: true });
 });
 
-reactionArea.addEventListener("click", () => {
+// The whole game panel is the interaction surface. Before a round it starts/restarts;
+// during waiting it detects a false start; on green it records the first reaction.
+gamePanel.addEventListener("click", (event) => {
+  if (event.target instanceof Element && event.target.closest("#primaryAction")) return;
+
+  if (["ready", "falseStart", "result"].includes(gameState)) {
+    startRound();
+    reactionArea.focus({ preventScroll: true });
+    return;
+  }
+
   handleReactionInput();
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.repeat || (event.code !== "Space" && event.code !== "Enter")) return;
 
-  // Native button activation handles keyboard input when a button has focus.
-  // Only listen globally while focus is outside interactive controls.
   const target = event.target;
-  if (target instanceof Element && target.closest("button, a, input, textarea, select, [contenteditable='true']")) return;
-  if (gameState !== "waiting" && gameState !== "active") return;
+  // Let enabled controls use their native keyboard activation. If a button is disabled
+  // during a live round, the global shortcut can still register Space/Enter as an input.
+  const enabledInteractiveTarget = target instanceof Element
+    && target.closest("button:not(:disabled), a, input, textarea, select, [contenteditable='true']");
+  if (enabledInteractiveTarget) return;
 
-  event.preventDefault();
-  handleReactionInput();
+  if (["ready", "falseStart", "result"].includes(gameState)) {
+    event.preventDefault();
+    // Do not move focus during Space keydown: that could turn the same keypress
+    // into a synthetic button click on keyup in some browsers.
+    startRound();
+    return;
+  }
+
+  if (gameState === "waiting" || gameState === "active") {
+    event.preventDefault();
+    handleReactionInput();
+  }
 });
 
 function startRound() {
+  hasStartedOnce = true;
   cancelPendingRound();
   roundToken += 1;
   const thisRoundToken = roundToken;
@@ -164,14 +224,15 @@ function handleReactionInput() {
 
   renderBestScore();
   renderGameState("result");
+  const rating = getReactionRating(measuredMs);
   stageTitle.textContent = `${measuredMs} ms`;
   stageCopy.textContent = isNewBest
-    ? "New session best. Sharp response — can you do it again?"
-    : "Nice response. Play again to try for a new session best.";
+    ? `New session best. ${rating.description}`
+    : rating.description;
   bestSubtitle.textContent = isNewBest ? "New personal session best" : "Your fastest valid response";
   liveStatus.textContent = isNewBest
-    ? `Reaction time ${measuredMs} milliseconds. New session best.`
-    : `Reaction time ${measuredMs} milliseconds.`;
+    ? `Reaction time ${measuredMs} milliseconds. Rating: ${rating.label}. New session best.`
+    : `Reaction time ${measuredMs} milliseconds. Rating: ${rating.label}.`;
 }
 
 function recordFalseStart() {
@@ -196,7 +257,7 @@ function renderGameState(nextState, options = {}) {
   if (!Object.hasOwn(STATES, nextState)) return;
 
   gameState = nextState;
-  const view = STATES[nextState];
+  const view = nextState === "ready" && !hasStartedOnce ? INITIAL_READY_VIEW : STATES[nextState];
 
   gamePanel.dataset.state = nextState;
   stateBadgeText.textContent = view.badge;
@@ -208,9 +269,29 @@ function renderGameState(nextState, options = {}) {
   reactionArea.setAttribute("aria-label", view.ariaLabel);
   primaryActionLabel.textContent = view.action;
   primaryAction.disabled = nextState === "waiting" || nextState === "active";
+  stageKeys.hidden = hasStartedOnce;
+  keyHintPrimary.textContent = view.keyPrimary;
+  keyHintSecondary.textContent = view.keySecondary;
+  ratingGuide.hidden = nextState !== "result" || latestResultMs === null;
+  scoreRating.hidden = nextState !== "result" || latestResultMs === null;
+  if (nextState === "result" && latestResultMs !== null) {
+    scoreRating.textContent = getReactionRating(latestResultMs).label.toUpperCase();
+  } else {
+    scoreRating.textContent = "";
+  }
+  ratingItems.forEach((item) => {
+    const isCurrent = nextState === "result" && latestResultMs !== null && item.dataset.rating === getReactionRating(latestResultMs).key;
+    item.classList.toggle("is-current", isCurrent);
+    if (isCurrent) item.setAttribute("aria-current", "true");
+    else item.removeAttribute("aria-current");
+  });
 
   if (announce) liveStatus.textContent = view.announcement;
   setSceneState(nextState);
+}
+
+function getReactionRating(milliseconds) {
+  return REACTION_RATINGS.find((rating) => milliseconds <= rating.max) ?? REACTION_RATINGS[REACTION_RATINGS.length - 1];
 }
 
 function renderBestScore() {
