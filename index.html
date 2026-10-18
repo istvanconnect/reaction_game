@@ -64,94 +64,114 @@
         </div>
       </section>
 
-      <section id="gamePanel" class="game-panel" data-state="ready" aria-labelledby="gamePanelHeading">
-        <canvas id="sceneCanvas" class="scene-canvas" aria-hidden="true"></canvas>
-        <div class="panel-grid" aria-hidden="true"></div>
-
-        <div class="panel-content">
-          <header class="panel-header">
-            <div class="panel-id-block">
-              <p class="panel-overline" id="gamePanelHeading">REACTION TEST</p>
-              <span class="panel-sequence">SEQUENCE <strong id="roundNumber">01</strong></span>
-            </div>
-            <div class="state-pill" aria-hidden="true">
-              <span class="state-dot"></span>
-              <span id="stateBadgeText">STANDBY</span>
-            </div>
-          </header>
-
-          <div class="scene-caption" aria-hidden="true">
-            <span>CORE / 01</span>
-            <span class="scene-caption-line"></span>
-            <span>OPTICAL SIGNAL</span>
+      <div class="play-column">
+        <section id="howToPlay" class="how-to-play" aria-labelledby="howToPlayHeading">
+          <div class="how-to-play-mark" aria-hidden="true">01</div>
+          <div class="how-to-play-content">
+            <h2 id="howToPlayHeading">How to play</h2>
+            <p>Click <strong>Start game</strong> or press <kbd>Space</kbd>. Wait for the core to turn green, then click the game area or press <kbd>Space</kbd> again as quickly as you can. Reacting early cancels the round.</p>
           </div>
+        </section>
 
-          <button id="reactionArea" class="reaction-area" type="button" aria-label="Game instructions. Click anywhere in this panel or press Space to start." aria-describedby="stageCopy">
-            <span class="stage-overline" id="stageOverline">FIRST, GET READY</span>
-            <span class="stage-title" id="stageTitle">Wait. Then react.</span>
-            <span class="score-rating" id="scoreRating" hidden></span>
-            <span class="stage-copy" id="stageCopy">Click anywhere in this game panel or press Space to start. Wait for green, then react. An early response cancels the round.</span>
-            <span class="stage-keys" id="stageKeys" aria-hidden="true">
-              <kbd id="keyHintPrimary">CLICK ANYWHERE</kbd>
-              <span class="keys-divider" id="keysDivider">OR</span>
-              <kbd id="keyHintSecondary">SPACE TO START</kbd>
-            </span>
-          </button>
+        <section id="gamePanel" class="game-panel" data-state="ready" aria-labelledby="gamePanelHeading">
+          <canvas id="sceneCanvas" class="scene-canvas" aria-hidden="true"></canvas>
+          <div class="panel-grid" aria-hidden="true"></div>
 
-          <section id="ratingGuide" class="rating-guide" aria-labelledby="ratingGuideHeading" hidden>
-            <div class="rating-guide-header">
-              <h2 id="ratingGuideHeading">REACTION TIME GUIDE</h2>
-              <p>Informal reference for visual reaction tests.</p>
-            </div>
-            <div class="rating-grid">
-              <div class="rating-item" data-rating="amazing">
-                <div class="rating-item-top"><strong>Amazing</strong><span>&lt; 150 ms</span></div>
-                <p>Exceptional speed for a visual cue.</p>
+          <div class="panel-content">
+            <header class="panel-header">
+              <div class="panel-header-meta">
+                <p class="panel-overline" id="gamePanelHeading">REACTION TEST</p>
+                <div class="panel-submeta">
+                  <span class="panel-sequence">ROUND <strong id="roundNumber">00</strong></span>
+                  <button id="soundToggle" class="sound-toggle" type="button" aria-label="Turn sound effects off" aria-pressed="true" title="Mute sound effects">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4 10v4h4l5 4V6l-5 4H4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                      <path class="sound-wave" d="M16 9a5 5 0 0 1 0 6M18.5 6.5a8.5 8.5 0 0 1 0 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    </svg>
+                    <span class="visually-hidden" id="soundToggleText">Sound effects on</span>
+                  </button>
+                </div>
               </div>
-              <div class="rating-item" data-rating="veryGood">
-                <div class="rating-item-top"><strong>Very good</strong><span>150–199 ms</span></div>
-                <p>Faster than typical visual responses.</p>
-              </div>
-              <div class="rating-item" data-rating="good">
-                <div class="rating-item-top"><strong>Good</strong><span>200–249 ms</span></div>
-                <p>A quick, solid response.</p>
-              </div>
-              <div class="rating-item" data-rating="average">
-                <div class="rating-item-top"><strong>Average</strong><span>250–350 ms</span></div>
-                <p>Around the common range for visual tests.</p>
-              </div>
-              <div class="rating-item" data-rating="belowAverage">
-                <div class="rating-item-top"><strong>Below average</strong><span>&gt; 350 ms</span></div>
-                <p>Slower than typical; practice and focus can help.</p>
-              </div>
-            </div>
-          </section>
+              <aside id="lastScoreCard" class="last-score-card" aria-label="Last score: no valid score yet">
+                <span class="last-score-label">LAST SCORE</span>
+                <div class="last-score-value-line"><strong id="lastScoreValue">—</strong><span>ms</span></div>
+                <span id="lastScoreRating" class="last-score-rating">NO SCORE YET</span>
+              </aside>
+            </header>
 
-          <div class="panel-footer">
-            <div class="best-stat">
-              <span class="best-label">SESSION BEST</span>
-              <div class="best-value-line"><strong id="sessionBestValue">—</strong><span>ms</span></div>
-              <span class="best-subtitle" id="bestSubtitle">Your fastest valid response</span>
-            </div>
-
-            <div class="footer-separator" aria-hidden="true"></div>
-
-            <div class="footer-note">
-              <span class="footer-note-mark" aria-hidden="true">↗</span>
-              <span>One signal.<br>One response.</span>
-            </div>
-
-            <button id="primaryAction" class="primary-button" type="button">
-              <span id="primaryActionLabel">Start round</span>
-              <svg class="button-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M3.5 10H16M10.5 4.5L16 10L10.5 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+            <button id="reactionArea" class="reaction-area" type="button" aria-label="Game area. Click or press Space to start a round." aria-describedby="howToPlayHeading">
+              <span class="visually-hidden">Game reaction area. Click or tap here to start or replay. During the round, react only after the green signal appears.</span>
             </button>
-          </div>
-        </div>
-      </section>
 
-      <p id="liveStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">Ready. Press Start round, then wait for the green signal before reacting.</p>
+            <div class="game-controls">
+              <button id="primaryAction" class="primary-button" type="button">
+                <span id="primaryActionLabel">Start game</span>
+                <svg class="button-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M3.5 10H16M10.5 4.5L16 10L10.5 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <button id="resetStats" class="secondary-button" type="button">Reset stats</button>
+            </div>
+
+            <section class="session-stats" aria-label="Session statistics">
+              <div class="session-stat">
+                <span class="session-stat-label">SESSION BEST</span>
+                <div class="session-stat-value"><strong id="sessionBestValue">—</strong><span>ms</span></div>
+                <span class="session-stat-note" id="bestSubtitle">Your fastest valid response</span>
+              </div>
+              <div class="session-stat-divider" aria-hidden="true"></div>
+              <div class="session-stat">
+                <span class="session-stat-label">VALID ROUNDS</span>
+                <div class="session-stat-value"><strong id="validRoundsValue">0</strong></div>
+                <span class="session-stat-note">Completed reactions</span>
+              </div>
+            </section>
+
+            <div id="panelMessage" class="panel-message" role="status" aria-live="polite" aria-atomic="true" hidden>
+              <span id="messageEyebrow" class="panel-message-eyebrow"></span>
+              <div class="panel-message-main">
+                <strong id="messageTitle" class="panel-message-title"></strong>
+                <span id="scoreRating" class="score-rating" hidden></span>
+              </div>
+              <p id="messageCopy" class="panel-message-copy"></p>
+            </div>
+          </div>
+        </section>
+
+        <section id="ratingGuide" class="rating-guide" aria-labelledby="ratingGuideHeading" hidden>
+          <div class="rating-guide-header">
+            <div>
+              <p class="rating-guide-kicker">YOUR RESULT, DECODED</p>
+              <h2 id="ratingGuideHeading">Reaction time guide</h2>
+            </div>
+            <p>Informal reference ranges for visual reaction tests.</p>
+          </div>
+          <div class="rating-grid">
+            <div class="rating-item" data-rating="amazing">
+              <div class="rating-item-top"><strong>Amazing</strong><span>&lt; 150 ms</span></div>
+              <p>Exceptional speed for a visual cue.</p>
+            </div>
+            <div class="rating-item" data-rating="veryGood">
+              <div class="rating-item-top"><strong>Very good</strong><span>150–199 ms</span></div>
+              <p>Faster than typical visual responses.</p>
+            </div>
+            <div class="rating-item" data-rating="good">
+              <div class="rating-item-top"><strong>Good</strong><span>200–249 ms</span></div>
+              <p>A quick, solid response.</p>
+            </div>
+            <div class="rating-item" data-rating="average">
+              <div class="rating-item-top"><strong>Average</strong><span>250–350 ms</span></div>
+              <p>Around the common range for visual tests.</p>
+            </div>
+            <div class="rating-item" data-rating="belowAverage">
+              <div class="rating-item-top"><strong>Below average</strong><span>&gt; 350 ms</span></div>
+              <p>Slower than typical; practice and focus can help.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <p id="liveStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">Ready. Start a round, then wait for the green signal before reacting.</p>
     </main>
 
     <footer class="site-footer">

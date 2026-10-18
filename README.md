@@ -9,10 +9,13 @@ REFLEX is a small, static reaction-time game built around one simple rule: wait 
 - Reaction time measured with `performance.now()` in milliseconds.
 - First valid input wins; repeat inputs cannot create duplicate results.
 - Session-best tracking using `sessionStorage`, with an in-memory fallback when storage is blocked.
-- Click or tap anywhere in the game panel to start/restart; click or tap again to register a false start or reaction during a round.
+- Click or tap the central game space to start/restart; click or tap again to register a false start or reaction during a round.
 - Space starts/restarts when the game panel is not focused and acts as the reaction key during the round; Enter is also supported.
-- The first-load instructions live inside the game panel and disappear after the first round begins.
-- Results include an explanatory rating: Amazing (<150 ms), Very good (150–199 ms), Good (200–249 ms), Average (250–350 ms), and Below average (>350 ms). These are informal game guide ranges, not clinical benchmarks.
+- Complete first-load instructions appear in a separate card above the game and disappear after the first round begins.
+- Centered session stats show session best and valid rounds, with a Reset stats control. Results include an explanatory rating: Amazing (<150 ms), Very good (150–199 ms), Good (200–249 ms), Average (250–350 ms), and Below average (>350 ms). These are informal game guide ranges, not clinical benchmarks.
+- Distinct synthesized Web Audio sound cues for starting a round, false starts, and successful reactions, plus a sound on/off toggle. No audio assets are downloaded.
+- A top-right Last Score card remembers the most recent valid reaction time and rating through replay, and Reset stats clears it.
+- A brief green impact ring, core pulse, and panel flash on successful reactions; CSS effects also work when WebGL is unavailable.
 - Procedural Three.js icosahedron, wireframe shell, orbiting torus rings, satellites, and state-synchronized lighting.
 - CSS visual fallback when Three.js or WebGL cannot initialize.
 - Responsive layout, visible keyboard focus, live announcements for state changes, and reduced-motion support.
@@ -62,11 +65,11 @@ No npm, dependencies folder, bundler, or compilation step is required. The Three
 
 ## Controls
 
-1. On the first load, read the instructions inside the game panel.
-2. Click or tap anywhere inside the game panel, or press **Space** to start.
+1. On the first load, read the complete How to play card above the game panel.
+2. Click or tap the central game space, select **Start game**, or press **Space** to start.
 3. Wait through the red state. Do not click or press Space during the wait.
-4. When the panel turns green and says **GO!**, click/tap anywhere in the game panel or press **Space** (Enter is also supported).
-5. After a false start or result, click/tap anywhere in the panel or press **Space** to restart/replay. The intro instructions do not reappear until the page is reloaded.
+4. When the central core turns green, click or tap the central game space, or press **Space** (Enter is also supported).
+5. After a false start or result, click/tap the central game space, select the action button, or press **Space** to restart/replay. Use **Reset stats** to clear the session best, last score, and valid-round count. Use the speaker button in the game header to mute or enable sound effects. The intro instructions do not reappear until the page is reloaded.
 
 ## Reaction-time ratings
 
@@ -76,9 +79,13 @@ No npm, dependencies folder, bundler, or compilation step is required. The Three
 - **Average:** 250–350 ms — around the common range for visual tests.
 - **Below average:** over 350 ms — slower than typical; practice and focus can help.
 
-The guide is an informal reference for this game, not a clinical benchmark. The result screen highlights the category for the latest score.
+The guide is an informal reference for this game, not a clinical benchmark. It appears below the game after a valid result and highlights the latest score category. False-start and result messages sit below the controls and session statistics rather than over the 3D core.
 
 ## Technical notes
+
+- Audio uses the browser Web Audio API after a user gesture. If Web Audio is unsupported or unavailable, gameplay continues silently. Sound effects can be switched off in the game header.
+- The successful reaction effect is independent of the measured timestamp. A short expanding torus in Three.js complements a CSS ring/flash that also covers fallback mode.
+- The Last Score card is stored in `sessionStorage` separately from the session-best score. It tracks the most recent valid result and is cleared by **Reset stats**.
 
 - Explicit states are `ready`, `waiting`, `active`, `result`, and `falseStart`.
 - A round token invalidates stale timeout callbacks. Pending timeouts are cleared on cancellation and on a new round.

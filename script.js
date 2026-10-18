@@ -1,70 +1,28 @@
-const INITIAL_READY_VIEW = Object.freeze({
-  badge: "HOW TO PLAY",
-  overline: "FIRST, GET READY",
-  title: "Wait. Then react.",
-  copy: "Click anywhere in this game panel or press Space to start. Wait for green, then react. An early response cancels the round.",
-  action: "Start round",
-  ariaLabel: "Game instructions. Click anywhere in this panel or press Space to start.",
-  announcement: "Instructions: click anywhere in the game panel or press Space to start. Wait for green before reacting.",
-  keyPrimary: "CLICK ANYWHERE",
-  keySecondary: "SPACE TO START"
-});
-
 const STATES = Object.freeze({
   ready: {
-    badge: "STANDBY",
-    overline: "READY WHEN YOU ARE",
-    title: "Ready for another round.",
-    copy: "Click anywhere in this panel or press Space to start again. Wait for green before reacting.",
-    action: "Start round",
-    ariaLabel: "Ready. Click anywhere in this panel or press Space to start another round.",
-    announcement: "Ready for another round.",
-    keyPrimary: "CLICK PANEL",
-    keySecondary: "SPACE TO START"
+    action: "Start game",
+    ariaLabel: "Game area. Click or press Space to start a round.",
+    announcement: "Ready. Start a round, then wait for the green signal before reacting."
   },
   waiting: {
-    badge: "WAITING",
-    overline: "SIGNAL INCOMING",
-    title: "Wait for green.",
-    copy: "Stay still and stay ready. React only when the signal appears.",
-    action: "Waiting for signal",
-    ariaLabel: "Reaction area. Wait for green. Do not react yet.",
-    announcement: "Waiting for green. Do not react yet.",
-    keyPrimary: "CLICK / TAP",
-    keySecondary: "SPACE"
+    action: "Start game",
+    ariaLabel: "Waiting period. Do not react until the core turns green.",
+    announcement: "Waiting for the signal. Do not react yet."
   },
   active: {
-    badge: "SIGNAL LIVE",
-    overline: "REACT NOW",
-    title: "GO!",
-    copy: "Click, tap, or press Space now.",
-    action: "Signal is live",
-    ariaLabel: "Green signal active. Click, tap, or press Space now.",
-    announcement: "Green signal. React now.",
-    keyPrimary: "CLICK / TAP",
-    keySecondary: "SPACE"
+    action: "Start game",
+    ariaLabel: "Green signal active. Click or press Space to record your reaction time.",
+    announcement: "Green signal. React now."
   },
   falseStart: {
-    badge: "FALSE START",
-    overline: "FALSE START DETECTED",
-    title: "Too soon! Try again.",
-    copy: "That attempt doesn't count. Reset your focus and wait for green.",
     action: "Try again",
-    ariaLabel: "False start. That attempt was cancelled. Click the panel or press Space to try again.",
-    announcement: "Too soon. This attempt was cancelled. Click the panel or press Space to try again.",
-    keyPrimary: "CLICK PANEL",
-    keySecondary: "SPACE TO RETRY"
+    ariaLabel: "False start. Click or press Space to try again.",
+    announcement: "Too soon. This attempt was cancelled. Try again."
   },
   result: {
-    badge: "RECORDED",
-    overline: "YOUR REACTION TIME",
-    title: "Reaction captured.",
-    copy: "A clean response. Play again to try for a new session best.",
     action: "Play again",
-    ariaLabel: "Last reaction result. Click the panel or press Space to play again.",
-    announcement: "Reaction recorded.",
-    keyPrimary: "CLICK PANEL",
-    keySecondary: "SPACE TO REPLAY"
+    ariaLabel: "Reaction result recorded. Click or press Space to play again.",
+    announcement: "Reaction recorded."
   }
 });
 
@@ -85,6 +43,8 @@ const STATE_COLORS = Object.freeze({
 });
 
 const BEST_STORAGE_KEY = "reflex.best.v1";
+const VALID_ROUNDS_STORAGE_KEY = "reflex.validRounds.v1";
+const LAST_SCORE_STORAGE_KEY = "reflex.lastScore.v1";
 const MIN_WAIT_MS = 1500;
 const MAX_WAIT_MS = 4000;
 
@@ -93,19 +53,24 @@ const sceneCanvas = document.querySelector("#sceneCanvas");
 const reactionArea = document.querySelector("#reactionArea");
 const primaryAction = document.querySelector("#primaryAction");
 const primaryActionLabel = document.querySelector("#primaryActionLabel");
-const stateBadgeText = document.querySelector("#stateBadgeText");
+const resetStatsButton = document.querySelector("#resetStats");
+const soundToggleButton = document.querySelector("#soundToggle");
+const soundToggleText = document.querySelector("#soundToggleText");
+const lastScoreCard = document.querySelector("#lastScoreCard");
+const lastScoreValue = document.querySelector("#lastScoreValue");
+const lastScoreRating = document.querySelector("#lastScoreRating");
+const howToPlay = document.querySelector("#howToPlay");
 const roundNumber = document.querySelector("#roundNumber");
-const stageOverline = document.querySelector("#stageOverline");
-const stageTitle = document.querySelector("#stageTitle");
+const panelMessage = document.querySelector("#panelMessage");
+const messageEyebrow = document.querySelector("#messageEyebrow");
+const messageTitle = document.querySelector("#messageTitle");
+const messageCopy = document.querySelector("#messageCopy");
 const scoreRating = document.querySelector("#scoreRating");
-const stageCopy = document.querySelector("#stageCopy");
-const stageKeys = document.querySelector("#stageKeys");
-const keyHintPrimary = document.querySelector("#keyHintPrimary");
-const keyHintSecondary = document.querySelector("#keyHintSecondary");
 const ratingGuide = document.querySelector("#ratingGuide");
 const ratingItems = [...document.querySelectorAll(".rating-item")];
 const sessionBestValue = document.querySelector("#sessionBestValue");
 const bestSubtitle = document.querySelector("#bestSubtitle");
+const validRoundsValue = document.querySelector("#validRoundsValue");
 const liveStatus = document.querySelector("#liveStatus");
 
 let gameState = "ready";
@@ -113,53 +78,78 @@ let hasStartedOnce = false;
 let roundTimeoutId = null;
 let roundToken = 0;
 let roundCount = 0;
+let validRounds = readSessionValidRounds();
 let signalStartedAt = null;
 let latestResultMs = null;
+let latestResultIsBest = false;
 let sessionBestMs = readSessionBest();
+let lastScoreMs = readLastScore();
+let soundsEnabled = true;
+let audioContext = null;
 let sceneRuntime = null;
 let sceneGeneration = 0;
 let preferredReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? { matches: false };
 
 renderBestScore();
+renderLastScore();
 renderGameState("ready", { announce: false });
 initializeScene();
 
-primaryAction.addEventListener("click", (event) => {
-  // Keep this separate from the panel-wide click handler so a button click starts only one round.
-  event.stopPropagation();
+primaryAction.addEventListener("click", () => {
   if (!["ready", "falseStart", "result"].includes(gameState)) return;
   startRound();
   reactionArea.focus({ preventScroll: true });
 });
 
-// The whole game panel is the interaction surface. Before a round it starts/restarts;
-// during waiting it detects a false start; on green it records the first reaction.
-gamePanel.addEventListener("click", (event) => {
-  if (event.target instanceof Element && event.target.closest("#primaryAction")) return;
-
+// The dedicated visual stage is the reaction target; controls never trigger a false start.
+reactionArea.addEventListener("click", () => {
   if (["ready", "falseStart", "result"].includes(gameState)) {
     startRound();
-    reactionArea.focus({ preventScroll: true });
     return;
   }
-
   handleReactionInput();
+});
+
+soundToggleButton.addEventListener("click", () => {
+  soundsEnabled = !soundsEnabled;
+  soundToggleButton.setAttribute("aria-pressed", String(soundsEnabled));
+  soundToggleButton.setAttribute("aria-label", soundsEnabled ? "Turn sound effects off" : "Turn sound effects on");
+  soundToggleButton.title = soundsEnabled ? "Mute sound effects" : "Enable sound effects";
+  soundToggleText.textContent = soundsEnabled ? "Sound effects on" : "Sound effects off";
+  if (soundsEnabled) wakeAudioContext();
+});
+
+resetStatsButton.addEventListener("click", () => {
+  sessionBestMs = null;
+  lastScoreMs = null;
+  validRounds = 0;
+  latestResultMs = null;
+  latestResultIsBest = false;
+  try {
+    window.sessionStorage.removeItem(BEST_STORAGE_KEY);
+    window.sessionStorage.removeItem(VALID_ROUNDS_STORAGE_KEY);
+    window.sessionStorage.removeItem(LAST_SCORE_STORAGE_KEY);
+  } catch {
+    // In-memory statistics still reset when storage is unavailable.
+  }
+  renderBestScore();
+  renderLastScore();
+  if (gameState === "result") renderGameState("ready", { announce: false });
+  liveStatus.textContent = "Session statistics reset.";
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.repeat || (event.code !== "Space" && event.code !== "Enter")) return;
 
   const target = event.target;
-  // Let enabled controls use their native keyboard activation. If a button is disabled
-  // during a live round, the global shortcut can still register Space/Enter as an input.
+  // Preserve native activation for interactive controls. Space/Enter on the reaction
+  // surface will create its native click; otherwise the global shortcut handles it.
   const enabledInteractiveTarget = target instanceof Element
     && target.closest("button:not(:disabled), a, input, textarea, select, [contenteditable='true']");
   if (enabledInteractiveTarget) return;
 
   if (["ready", "falseStart", "result"].includes(gameState)) {
     event.preventDefault();
-    // Do not move focus during Space keydown: that could turn the same keypress
-    // into a synthetic button click on keyup in some browsers.
     startRound();
     return;
   }
@@ -171,30 +161,31 @@ document.addEventListener("keydown", (event) => {
 });
 
 function startRound() {
+  playGameSound("start");
   hasStartedOnce = true;
+  howToPlay.hidden = true;
   cancelPendingRound();
   roundToken += 1;
   const thisRoundToken = roundToken;
 
   signalStartedAt = null;
   latestResultMs = null;
+  latestResultIsBest = false;
   renderBestScore();
   roundCount += 1;
   roundNumber.textContent = String(roundCount).padStart(2, "0");
   renderGameState("waiting");
 
-  // The random delay is deliberately not displayed as a countdown.
+  // The randomized delay is never displayed as a countdown.
   const waitDuration = MIN_WAIT_MS + Math.random() * (MAX_WAIT_MS - MIN_WAIT_MS);
-  roundTimeoutId = window.setTimeout(() => {
-    activateSignal(thisRoundToken);
-  }, waitDuration);
+  roundTimeoutId = window.setTimeout(() => activateSignal(thisRoundToken), waitDuration);
 }
 
 function activateSignal(thisRoundToken) {
   if (thisRoundToken !== roundToken || gameState !== "waiting") return;
 
   roundTimeoutId = null;
-  // This timestamp is the logical signal onset. Rendering and animation do not affect it.
+  // Start the clock at the logical signal transition, independently of rendering.
   signalStartedAt = performance.now();
   renderGameState("active");
 }
@@ -204,10 +195,9 @@ function handleReactionInput() {
     recordFalseStart();
     return;
   }
-
   if (gameState !== "active" || signalStartedAt === null) return;
 
-  // Capture the first valid input timestamp before updating any UI or scene state.
+  // Capture the first valid input timestamp before touching the DOM or scene.
   const reactedAt = performance.now();
   const measuredMs = Math.max(0, Math.round(reactedAt - signalStartedAt));
 
@@ -215,8 +205,16 @@ function handleReactionInput() {
   roundToken += 1;
   signalStartedAt = null;
   latestResultMs = measuredMs;
+  lastScoreMs = measuredMs;
+  writeLastScore(lastScoreMs);
+  renderLastScore({ animate: true });
+  triggerReactionEffect();
+  playGameSound("success");
+  validRounds += 1;
+  writeSessionValidRounds(validRounds);
 
   const isNewBest = sessionBestMs === null || measuredMs < sessionBestMs;
+  latestResultIsBest = isNewBest;
   if (isNewBest) {
     sessionBestMs = measuredMs;
     writeSessionBest(sessionBestMs);
@@ -225,11 +223,6 @@ function handleReactionInput() {
   renderBestScore();
   renderGameState("result");
   const rating = getReactionRating(measuredMs);
-  stageTitle.textContent = `${measuredMs} ms`;
-  stageCopy.textContent = isNewBest
-    ? `New session best. ${rating.description}`
-    : rating.description;
-  bestSubtitle.textContent = isNewBest ? "New personal session best" : "Your fastest valid response";
   liveStatus.textContent = isNewBest
     ? `Reaction time ${measuredMs} milliseconds. Rating: ${rating.label}. New session best.`
     : `Reaction time ${measuredMs} milliseconds. Rating: ${rating.label}.`;
@@ -237,11 +230,12 @@ function handleReactionInput() {
 
 function recordFalseStart() {
   if (gameState !== "waiting") return;
-
+  playGameSound("falseStart");
   cancelPendingRound();
   roundToken += 1;
   signalStartedAt = null;
   latestResultMs = null;
+  latestResultIsBest = false;
   renderGameState("falseStart");
 }
 
@@ -257,28 +251,38 @@ function renderGameState(nextState, options = {}) {
   if (!Object.hasOwn(STATES, nextState)) return;
 
   gameState = nextState;
-  const view = nextState === "ready" && !hasStartedOnce ? INITIAL_READY_VIEW : STATES[nextState];
-
+  const view = STATES[nextState];
   gamePanel.dataset.state = nextState;
-  stateBadgeText.textContent = view.badge;
-  stageOverline.textContent = view.overline;
-  stageTitle.textContent = nextState === "result" && latestResultMs !== null
-    ? `${latestResultMs} ms`
-    : view.title;
-  stageCopy.textContent = view.copy;
   reactionArea.setAttribute("aria-label", view.ariaLabel);
   primaryActionLabel.textContent = view.action;
   primaryAction.disabled = nextState === "waiting" || nextState === "active";
-  stageKeys.hidden = hasStartedOnce;
-  keyHintPrimary.textContent = view.keyPrimary;
-  keyHintSecondary.textContent = view.keySecondary;
-  ratingGuide.hidden = nextState !== "result" || latestResultMs === null;
-  scoreRating.hidden = nextState !== "result" || latestResultMs === null;
-  if (nextState === "result" && latestResultMs !== null) {
-    scoreRating.textContent = getReactionRating(latestResultMs).label.toUpperCase();
+  howToPlay.hidden = hasStartedOnce;
+
+  const showMessage = nextState === "falseStart" || (nextState === "result" && latestResultMs !== null);
+  panelMessage.hidden = !showMessage;
+  ratingGuide.hidden = !(nextState === "result" && latestResultMs !== null);
+  scoreRating.hidden = !(nextState === "result" && latestResultMs !== null);
+
+  if (nextState === "falseStart") {
+    messageEyebrow.textContent = "FALSE START";
+    messageTitle.textContent = "Too soon! Try again.";
+    messageCopy.textContent = "That attempt doesn't count. Wait for green before reacting.";
+    scoreRating.textContent = "";
+  } else if (nextState === "result" && latestResultMs !== null) {
+    const rating = getReactionRating(latestResultMs);
+    messageEyebrow.textContent = "REACTION TIME";
+    messageTitle.textContent = `${latestResultMs} ms`;
+    scoreRating.textContent = rating.label.toUpperCase();
+    messageCopy.textContent = latestResultIsBest
+      ? `New session best. ${rating.description}`
+      : rating.description;
   } else {
+    messageEyebrow.textContent = "";
+    messageTitle.textContent = "";
+    messageCopy.textContent = "";
     scoreRating.textContent = "";
   }
+
   ratingItems.forEach((item) => {
     const isCurrent = nextState === "result" && latestResultMs !== null && item.dataset.rating === getReactionRating(latestResultMs).key;
     item.classList.toggle("is-current", isCurrent);
@@ -296,9 +300,51 @@ function getReactionRating(milliseconds) {
 
 function renderBestScore() {
   sessionBestValue.textContent = sessionBestMs === null ? "—" : String(sessionBestMs);
+  validRoundsValue.textContent = String(validRounds);
   bestSubtitle.textContent = sessionBestMs === null
     ? "Your fastest valid response"
     : "Fastest valid response this session";
+}
+
+function renderLastScore({ animate = false } = {}) {
+  const hasScore = lastScoreMs !== null;
+  lastScoreValue.textContent = hasScore ? String(lastScoreMs) : "—";
+  if (hasScore) {
+    const rating = getReactionRating(lastScoreMs);
+    lastScoreRating.textContent = rating.label.toUpperCase();
+    lastScoreCard.setAttribute("aria-label", `Last score: ${lastScoreMs} milliseconds, rated ${rating.label}.`);
+    lastScoreCard.classList.add("has-score");
+    lastScoreCard.dataset.rating = rating.key;
+  } else {
+    lastScoreRating.textContent = "NO SCORE YET";
+    lastScoreCard.setAttribute("aria-label", "Last score: no valid score yet.");
+    lastScoreCard.classList.remove("has-score");
+    delete lastScoreCard.dataset.rating;
+  }
+  if (animate) {
+    lastScoreCard.classList.remove("score-updated");
+    void lastScoreCard.offsetWidth;
+    lastScoreCard.classList.add("score-updated");
+  }
+}
+
+function readLastScore() {
+  try {
+    const stored = window.sessionStorage.getItem(LAST_SCORE_STORAGE_KEY);
+    if (stored === null) return null;
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) && parsed >= 0 && parsed <= 60000 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastScore(value) {
+  try {
+    window.sessionStorage.setItem(LAST_SCORE_STORAGE_KEY, String(value));
+  } catch {
+    // The last score remains visible in memory when storage is unavailable.
+  }
 }
 
 function readSessionBest() {
@@ -308,7 +354,6 @@ function readSessionBest() {
     const parsed = Number(stored);
     return Number.isFinite(parsed) && parsed >= 0 && parsed <= 60000 ? parsed : null;
   } catch {
-    // Storage can be blocked by browser privacy settings; gameplay still works without it.
     return null;
   }
 }
@@ -317,9 +362,124 @@ function writeSessionBest(value) {
   try {
     window.sessionStorage.setItem(BEST_STORAGE_KEY, String(value));
   } catch {
-    // Best-score persistence is optional; the in-memory value remains available for this page.
+    // Best-score persistence is optional; the in-memory value remains available this page.
   }
 }
+
+function readSessionValidRounds() {
+  try {
+    const stored = Number(window.sessionStorage.getItem(VALID_ROUNDS_STORAGE_KEY) ?? 0);
+    return Number.isInteger(stored) && stored >= 0 && stored <= 100000 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeSessionValidRounds(value) {
+  try {
+    window.sessionStorage.setItem(VALID_ROUNDS_STORAGE_KEY, String(value));
+  } catch {
+    // The count remains correct for this page even if session storage is blocked.
+  }
+}
+
+function wakeAudioContext() {
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextConstructor) return;
+  try {
+    if (!audioContext) audioContext = new AudioContextConstructor();
+    if (audioContext.state === "suspended") void audioContext.resume().catch(() => {});
+  } catch {
+    // Audio is an enhancement; missing browser audio support never blocks the game.
+  }
+}
+
+function playGameSound(kind) {
+  if (!soundsEnabled) return;
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextConstructor) return;
+
+  try {
+    if (!audioContext) audioContext = new AudioContextConstructor();
+    const context = audioContext;
+    const playPattern = () => {
+      if (!soundsEnabled || context.state !== "running") return;
+      const patterns = {
+        start: [
+          { frequency: 420, offset: 0, duration: 0.10, type: "sine", volume: 0.045 },
+          { frequency: 620, offset: 0.085, duration: 0.13, type: "sine", volume: 0.045 }
+        ],
+        falseStart: [
+          { frequency: 250, endFrequency: 185, offset: 0, duration: 0.14, type: "triangle", volume: 0.065 },
+          { frequency: 175, endFrequency: 132, offset: 0.105, duration: 0.18, type: "triangle", volume: 0.055 }
+        ],
+        success: [
+          { frequency: 660, offset: 0, duration: 0.18, type: "sine", volume: 0.045 },
+          { frequency: 880, offset: 0.075, duration: 0.20, type: "sine", volume: 0.045 },
+          { frequency: 1175, offset: 0.15, duration: 0.27, type: "sine", volume: 0.04 }
+        ]
+      };
+      const pattern = patterns[kind];
+      if (!pattern) return;
+      const now = context.currentTime;
+      for (const note of pattern) {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        const startsAt = now + note.offset;
+        const endsAt = startsAt + note.duration;
+        oscillator.type = note.type;
+        oscillator.frequency.setValueAtTime(note.frequency, startsAt);
+        if (note.endFrequency) oscillator.frequency.exponentialRampToValueAtTime(note.endFrequency, endsAt);
+        gain.gain.setValueAtTime(0.0001, startsAt);
+        gain.gain.exponentialRampToValueAtTime(note.volume, startsAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, endsAt);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(startsAt);
+        oscillator.stop(endsAt + 0.025);
+      }
+    };
+
+    if (context.state === "running") {
+      playPattern();
+    } else {
+      void context.resume().then(playPattern).catch(() => {});
+    }
+  } catch {
+    // Silently ignore audio device/context errors while preserving interaction.
+  }
+}
+
+function triggerReactionEffect() {
+  reactionArea.classList.remove("reaction-success");
+  gamePanel.classList.remove("success-flash");
+  // Reflow restarts the short CSS impact animation for each successful attempt.
+  void reactionArea.offsetWidth;
+  reactionArea.classList.add("reaction-success");
+  gamePanel.classList.add("success-flash");
+
+  if (sceneRuntime && !preferredReducedMotion.matches) {
+    sceneRuntime.impactStartedAt = performance.now();
+    sceneRuntime.impactRing.visible = true;
+    sceneRuntime.impactRing.scale.setScalar(0.72);
+    sceneRuntime.impactRingMaterial.opacity = 0.9;
+    sceneRuntime.impactRingMaterial.color.setHex(STATE_COLORS.active);
+  }
+}
+
+reactionArea.addEventListener("animationend", (event) => {
+  if (event.animationName === "reaction-flash" || event.animationName === "reaction-ring") {
+    reactionArea.classList.remove("reaction-success");
+  }
+});
+
+gamePanel.addEventListener("animationend", (event) => {
+  if (event.animationName === "panel-success-flash") gamePanel.classList.remove("success-flash");
+});
+
+lastScoreCard.addEventListener("animationend", (event) => {
+  if (event.animationName === "score-pop") lastScoreCard.classList.remove("score-updated");
+});
 
 function setSceneState(nextState) {
   if (!sceneRuntime) return;
@@ -397,6 +557,16 @@ async function initializeScene() {
     const shellMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.94, 1), shellMaterial);
     coreGroup.add(shellMesh);
 
+    const impactRingMaterial = new THREE.MeshBasicMaterial({
+      color: STATE_COLORS.active,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false
+    });
+    const impactRing = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.026, 8, 72), impactRingMaterial);
+    impactRing.visible = false;
+    coreGroup.add(impactRing);
+
     const ringGroup = new THREE.Group();
     ringGroup.rotation.set(0.25, 0.08, -0.18);
     coreGroup.add(ringGroup);
@@ -459,6 +629,9 @@ async function initializeScene() {
       coreGroup,
       coreMaterial,
       shellMaterial,
+      impactRing,
+      impactRingMaterial,
+      impactStartedAt: null,
       ringGroup,
       ringMeshes,
       ringMaterials,
@@ -497,7 +670,8 @@ async function initializeScene() {
 function resizeScene() {
   if (!sceneRuntime) return;
 
-  const bounds = gamePanel.getBoundingClientRect();
+  // Size the renderer to the dedicated visual stage, not the whole panel.
+  const bounds = sceneCanvas.getBoundingClientRect();
   const width = Math.max(1, Math.round(bounds.width));
   const height = Math.max(1, Math.round(bounds.height));
 
@@ -554,6 +728,17 @@ function animateScene(now) {
     runtime.coreGroup.scale.setScalar(pulse);
   } else {
     runtime.coreGroup.scale.lerp(new runtime.THREE.Vector3(1, 1, 1), 1 - Math.exp(-delta * 4));
+  }
+
+  if (runtime.impactStartedAt !== null) {
+    const progress = Math.min((now - runtime.impactStartedAt) / 560, 1);
+    runtime.impactRing.scale.setScalar(0.72 + progress * 1.85);
+    runtime.impactRingMaterial.opacity = (1 - progress) * 0.9;
+    if (progress >= 1) {
+      runtime.impactRing.visible = false;
+      runtime.impactRingMaterial.opacity = 0;
+      runtime.impactStartedAt = null;
+    }
   }
 
   runtime.renderer.render(runtime.scene, runtime.camera);
@@ -646,8 +831,7 @@ document.addEventListener("visibilitychange", () => {
       signalStartedAt = null;
       latestResultMs = null;
       renderGameState("ready");
-      stageCopy.textContent = "Round paused because the tab was hidden. Start again when you're ready.";
-      liveStatus.textContent = "Round paused because the tab was hidden. Press Start round to begin again.";
+      liveStatus.textContent = "Round cancelled because the tab was hidden. Start a new round when ready.";
     }
   } else {
     if (preferredReducedMotion.matches) renderStaticScene();
