@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # REFLEX — Reaction Timer
 
 REFLEX is a small, static reaction-time game built around one simple rule: wait for the green signal, then react as quickly as you can. It pairs a measured, no-countdown game loop with a procedural Three.js visual core and a responsive, accessible HTML interface.
@@ -82,3 +83,7 @@ Upload `index.html`, `style.css`, `script.js`, and `README.md` to any static HTT
 - Google Fonts and Three.js rely on third-party CDNs; offline use falls back to system fonts and CSS visuals, but the scene will not render without the Three.js module.
 - Reaction time is measured from the programmatic state transition to the first registered input. Display refresh, browser scheduling, touch hardware, and input-device latency can still influence a human-perceived result.
 - Session-best data is local to the current tab session and can be unavailable when browser storage is blocked.
+=======
+# reaction_game
+Reaction Game
+>>>>>>> edee59548cd9b69bd05ea9a7d976427c208a9d50
